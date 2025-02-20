@@ -1,0 +1,201 @@
+asyncapi: 3.0.0
+id: 'urn:com:example:devicesamplingapi'
+info:
+  title: Geräte- und Sampling-API
+  version: 1.0.0
+  description: |
+    Kompatible OmnAIView backend versionen: > 0.4.0
+    Diese API bietet zwei Endpunkte:
+    1. **Geräteliste (HTTP GET)**
+       - **URL:** `http://<ip>:8080/UUID`
+       - **Beschreibung:** Liefert im JSON-Format eine Liste der verfügbaren Geräte (UUIDs) und zugehörige Farben.
+
+    2. **WebSocket-Verbindung (bidirektional)**
+       - **URL:** `ws://<ip>:8080/ws`
+       - **Beschreibung:** Über den WebSocket können Clients einen Steuerbefehl als Textnachricht senden, um zu definieren, welche Geräte abgenommen werden sollen.
+         Der Befehl besteht aus:
+         - Einer Liste von UUIDs (beliebig viele, mindestens eine), getrennt durch Leerzeichen.
+         - Optional einer Sampling-Rate (Ganzzahl im Bereich 1 bis 100000, Standard: 60 Sa/s).
+         - Optional einem Ausgabeformat (entweder `json`, `csv` oder `binary`).
+         **Beispiel:** `UUID1 UUID2 UUID3 1000 csv`
+       - **Antwort:** Sample-Daten werden als JSON-, CSV- oder Binary-Nachrichten zurückgesendet.
+defaultContentType: application/json
+servers:
+  httpServer:
+    host: '<ip>:8080'
+    protocol: http
+  wsServer:
+    host: '<ip>:8080'
+    protocol: ws
+channels:
+  /UUID:
+    address: /UUID
+    servers:
+      - $ref: '#/servers/httpServer'
+    messages:
+      deviceListResponse:
+        contentType: application/json
+        payload:
+          type: object
+          properties:
+            devices:
+              type: array
+              description: Liste der Geräteobjekte.
+              items:
+                type: object
+                properties:
+                  UUID:
+                    type: string
+            colors:
+              type: array
+              description: Liste der Farben.
+              items:
+                type: object
+                properties:
+                  color:
+                    type: object
+                    properties:
+                      r:
+                        type: integer
+                        example: 81
+                      g:
+                        type: integer
+                        example: 237
+                      b:
+                        type: integer
+                        example: 96
+          example:
+            devices:
+              - UUID: E66368254F77B524
+            colors:
+              - color:
+                  r: 81
+                  g: 237
+                  b: 96
+  /ws:
+    address: /ws
+    servers:
+      - $ref: '#/servers/wsServer'
+    messages:
+      controlCommand:
+        $ref: '#/components/messages/ControlCommand'
+      sampleDataJson:
+        $ref: '#/components/messages/SampleDataJson'
+      sampleDataCsv:
+        $ref: '#/components/messages/SampleDataCsv'
+      sampleDataBinary:
+        $ref: '#/components/messages/SampleDataBinary'
+    bindings:
+      ws: {}
+operations:
+  getDeviceList:
+    action: receive
+    channel:
+      $ref: '#/channels/~1UUID'
+    summary: Liefert die Liste der verfügbaren Geräte und deren Farben.
+    bindings:
+      http:
+        method: GET
+    messages:
+      - $ref: '#/channels/~1UUID/messages/deviceListResponse'
+  startDeviceData:
+    action: send
+    channel:
+      $ref: '#/channels/~1ws'
+    summary: Beschreibt Geräte, Samplingrate und Format, um festzulegen, wie der Server antwortet.
+    messages: 
+      - $ref: '#/channels/~1ws/messages/controlCommand'
+  sendControlCommand:
+    action: send
+    channel:
+      $ref: '#/channels/~1ws'
+    summary: Senden eines Steuerbefehls an den WebSocket.
+    messages:
+      - $ref: '#/channels/~1ws/messages/controlCommand'
+  receiveSampleData:
+    action: receive
+    channel:
+      $ref: '#/channels/~1ws'
+    summary: Empfang von Sample-Daten im JSON-, CSV- oder Binary-Format.
+    messages:
+      - $ref: '#/channels/~1ws/messages/sampleDataJson'
+      - $ref: '#/channels/~1ws/messages/sampleDataCsv'
+      - $ref: '#/channels/~1ws/messages/sampleDataBinary'
+components:
+  messages:
+    ControlCommand:
+      name: ControlCommand
+      title: Steuerbefehl
+      contentType: text/plain
+      summary: >
+        Dieser Steuerbefehl wird an den WebSocket gesendet und besteht aus einem
+        einzelnen Textstring, der folgende Komponenten enthält (alle durch ein
+        Leerzeichen getrennt):
+          - Eine oder mehrere UUIDs (beliebig viele, mindestens eine).
+          - Optional: Eine Sampling-Rate (Ganzzahl im Bereich 1 bis 100000, Standard: 60 Sa/s).
+          - Optional: Ein Ausgabeformat, entweder `json`, `csv` oder `binary`.
+      payload:
+        type: string
+        pattern: '^(?<uuids>[A-Za-z0-9]+(?:\s+[A-Za-z0-9]+)*)(?:\s+(?<rate>[1-9]\d{0,4}|100000))?(?:\s+(?<format>json|csv|binary))?$'
+      examples:
+        - summary: CSV Request für 1000 Sa/s
+          payload: UUID1 UUID2 UUID3 1000 csv
+    SampleDataJson:
+      name: SampleDataJson
+      title: Sample-Daten (JSON)
+      contentType: application/json
+      summary: Sample-Daten im JSON-Format.
+      payload:
+        type: object
+        properties:
+          data:
+            type: array
+            description: Liste von Samples.
+            items:
+              type: object
+              properties:
+                timestamp:
+                  type: number
+                  example: -0.999
+                value:
+                  type: array
+                  items:
+                    type: number
+                  example:
+                    - 0.04
+          devices:
+            type: array
+            description: Liste der Geräte-UUIDs.
+            items:
+              type: string
+    SampleDataCsv:
+      name: SampleDataCsv
+      title: Sample-Daten (CSV)
+      contentType: text/csv
+      summary: >
+        Sample-Daten im CSV-Format. Jede Zeile repräsentiert einen Datensatz,
+        dessen Werte durch Kommas separiert sind, bestehend aus:
+          - Zeitstempel
+          - Spannungswerten der ausgewählten Scopes
+
+        **Hinweis:** Alle numerischen Werte werden auf drei Dezimalstellen gerundet.
+      payload:
+        type: string
+    SampleDataBinary:
+      name: SampleDataBinary
+      title: Sample-Daten (Binary)
+      contentType: application/x-protobuf
+      summary: >
+        Sample-Daten im Binary-Format. Die Daten werden gemäß dem folgenden Proto-3-Schema serialisiert:
+
+        ```proto
+        syntax = "proto3";
+
+        message Sample {
+          double timestamp = 1; 
+          repeated double values = 2; 
+        }
+        ```
+      payload:
+        type: string
+        format: binary
