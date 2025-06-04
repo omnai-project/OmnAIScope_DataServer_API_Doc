@@ -4,10 +4,11 @@ info:
   title: Async API description of OmnAIScope DataServer
   version: 1.0.0
   description: |
-    This interface description documents the interface to the OmnAIScope-Backend v0.4.0>: https://github.com/AI-Gruppe/OmnAIScope-DataServer/releases/tag/v0.4.0 . 
+    This interface description documents the interface to the OmnAIScope-Backend v0.5.1> : https://github.com/AI-Gruppe/OmnAIScope-DataServer/releases/tag/v0.4.0 . 
     The interface consists of a REST API endpoint and a WebSocket connection.
     A data source has one or more data streams, each data stream has a UUID and a color.
-    Currently the port on which the OmnAIScope-Backend is running is set to 8080. 
+    The port on which the websocket runs is set by the client. The port number belongs to the parameters that 
+    are set when starting the backend via .\<exe> -w -p <portnumber> . 
     
     1. **Data Source List (HTTP GET)**
        - **URL:** `http://<ip>:8080/UUID`
