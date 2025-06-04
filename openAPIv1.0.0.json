@@ -1,24 +1,28 @@
 asyncapi: 3.0.0
 id: 'urn:com:example:devicesamplingapi'
 info:
-  title: Geräte- und Sampling-API
+  title: Async API description of OmnAIScope DataServer
   version: 1.0.0
   description: |
-    Kompatible OmnAIView backend versionen: > 0.4.0
-    Diese API bietet zwei Endpunkte:
-    1. **Geräteliste (HTTP GET)**
+    This interface description documents the interface to the OmnAIScope-Backend v0.4.0>: https://github.com/AI-Gruppe/OmnAIScope-DataServer/releases/tag/v0.4.0 . 
+    The interface consists of a REST API endpoint and a WebSocket connection.
+    A data source has one or more data streams, each data stream has a UUID and a color.
+    Currently the port on which the OmnAIScope-Backend is running is set to 8080. 
+    
+    1. **Data Source List (HTTP GET)**
        - **URL:** `http://<ip>:8080/UUID`
-       - **Beschreibung:** Liefert im JSON-Format eine Liste der verfügbaren Geräte (UUIDs) und zugehörige Farben.
+       - **Description:** Returns a list of available data streams (UUIDs) and associated colors in JSON format.
 
-    2. **WebSocket-Verbindung (bidirektional)**
+    2. **WebSocket Connection (Bidirectional)**
        - **URL:** `ws://<ip>:8080/ws`
-       - **Beschreibung:** Über den WebSocket können Clients einen Steuerbefehl als Textnachricht senden, um zu definieren, welche Geräte abgenommen werden sollen.
-         Der Befehl besteht aus:
-         - Einer Liste von UUIDs (beliebig viele, mindestens eine), getrennt durch Leerzeichen.
-         - Optional einer Sampling-Rate (Ganzzahl im Bereich 1 bis 100000, Standard: 60 Sa/s).
-         - Optional einem Ausgabeformat (entweder `json`, `csv` oder `binary`).
-         **Beispiel:** `UUID1 UUID2 UUID3 1000 csv`
-       - **Antwort:** Sample-Daten werden als JSON-, CSV- oder Binary-Nachrichten zurückgesendet.
+       - **Description:** OmnAIView can send a control command as a text message via WebSocket to define which data streams of the data source should be retrieved.
+         The command consists of:
+         - A list of UUIDs (any number, at least one), separated by spaces.
+         - Optionally, a sampling rate (integer between 1 and 100000, default: 60 Sa/s).
+         - Optionally, an output format (`json`, `csv`, or `binary`).
+         **Example:** `UUID1 UUID2 UUID3 1000 csv`
+       - **Response:** Sample data is returned as JSON, CSV, or binary messages.
+
 defaultContentType: application/json
 servers:
   httpServer:
@@ -27,6 +31,7 @@ servers:
   wsServer:
     host: '<ip>:8080'
     protocol: ws
+
 channels:
   /UUID:
     address: /UUID
@@ -38,9 +43,9 @@ channels:
         payload:
           type: object
           properties:
-            devices:
+            Datastreams:
               type: array
-              description: Liste der Geräteobjekte.
+              description: List of data streams.
               items:
                 type: object
                 properties:
@@ -48,7 +53,7 @@ channels:
                     type: string
             colors:
               type: array
-              description: Liste der Farben.
+              description: List of colors.
               items:
                 type: object
                 properties:
@@ -65,7 +70,7 @@ channels:
                         type: integer
                         example: 96
           example:
-            devices:
+            datastreams:
               - UUID: E66368254F77B524
             colors:
               - color:
@@ -92,7 +97,7 @@ operations:
     action: receive
     channel:
       $ref: '#/channels/~1UUID'
-    summary: Liefert die Liste der verfügbaren Geräte und deren Farben.
+    summary: Returns the list of available data streams and their colors.
     bindings:
       http:
         method: GET
@@ -102,21 +107,14 @@ operations:
     action: send
     channel:
       $ref: '#/channels/~1ws'
-    summary: Beschreibt Geräte, Samplingrate und Format, um festzulegen, wie der Server antwortet.
+    summary: Defines data streams, sampling rate, and format to determine how the server responds.
     messages: 
-      - $ref: '#/channels/~1ws/messages/controlCommand'
-  sendControlCommand:
-    action: send
-    channel:
-      $ref: '#/channels/~1ws'
-    summary: Senden eines Steuerbefehls an den WebSocket.
-    messages:
       - $ref: '#/channels/~1ws/messages/controlCommand'
   receiveSampleData:
     action: receive
     channel:
       $ref: '#/channels/~1ws'
-    summary: Empfang von Sample-Daten im JSON-, CSV- oder Binary-Format.
+    summary: Receives sample data in JSON, CSV, or binary format.
     messages:
       - $ref: '#/channels/~1ws/messages/sampleDataJson'
       - $ref: '#/channels/~1ws/messages/sampleDataCsv'
@@ -125,32 +123,31 @@ components:
   messages:
     ControlCommand:
       name: ControlCommand
-      title: Steuerbefehl
+      title: Control Command
       contentType: text/plain
       summary: >
-        Dieser Steuerbefehl wird an den WebSocket gesendet und besteht aus einem
-        einzelnen Textstring, der folgende Komponenten enthält (alle durch ein
-        Leerzeichen getrennt):
-          - Eine oder mehrere UUIDs (beliebig viele, mindestens eine).
-          - Optional: Eine Sampling-Rate (Ganzzahl im Bereich 1 bis 100000, Standard: 60 Sa/s).
-          - Optional: Ein Ausgabeformat, entweder `json`, `csv` oder `binary`.
+        This control command is sent to the WebSocket and consists of a
+        single text string containing the following components (all separated by a space):
+          - One or more UUIDs (any number, at least one).
+          - Optional: A sampling rate (integer between 1 and 100000, default: 60 Sa/s).
+          - Optional: An output format (`json`, `csv`, or `binary`).
       payload:
         type: string
         pattern: '^(?<uuids>[A-Za-z0-9]+(?:\s+[A-Za-z0-9]+)*)(?:\s+(?<rate>[1-9]\d{0,4}|100000))?(?:\s+(?<format>json|csv|binary))?$'
       examples:
-        - summary: CSV Request für 1000 Sa/s
+        - summary: CSV request for 1000 Sa/s
           payload: UUID1 UUID2 UUID3 1000 csv
     SampleDataJson:
       name: SampleDataJson
-      title: Sample-Daten (JSON)
+      title: Sample Data (JSON)
       contentType: application/json
-      summary: Sample-Daten im JSON-Format.
+      summary: Sample data in JSON format.
       payload:
         type: object
         properties:
           data:
             type: array
-            description: Liste von Samples.
+            description: List of samples.
             items:
               type: object
               properties:
@@ -163,39 +160,22 @@ components:
                     type: number
                   example:
                     - 0.04
-          devices:
+          datastreams:
             type: array
-            description: Liste der Geräte-UUIDs.
+            description: List of device UUIDs.
             items:
               type: string
     SampleDataCsv:
       name: SampleDataCsv
-      title: Sample-Daten (CSV)
+      title: Sample Data (CSV)
       contentType: text/csv
-      summary: >
-        Sample-Daten im CSV-Format. Jede Zeile repräsentiert einen Datensatz,
-        dessen Werte durch Kommas separiert sind, bestehend aus:
-          - Zeitstempel
-          - Spannungswerten der ausgewählten Scopes
-
-        **Hinweis:** Alle numerischen Werte werden auf drei Dezimalstellen gerundet.
+      summary: Sample data in CSV format.
       payload:
         type: string
     SampleDataBinary:
       name: SampleDataBinary
-      title: Sample-Daten (Binary)
+      title: Sample Data (Binary)
       contentType: application/x-protobuf
-      summary: >
-        Sample-Daten im Binary-Format. Die Daten werden gemäß dem folgenden Proto-3-Schema serialisiert:
-
-        ```proto
-        syntax = "proto3";
-
-        message Sample {
-          double timestamp = 1; 
-          repeated double values = 2; 
-        }
-        ```
+      summary: Sample data in protobuf binary format. The syntax for protobuf was syntax = "proto3"; message Sample {double timestamp = 1; repeated double values = 2;}
       payload:
         type: string
-        format: binary
