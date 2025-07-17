@@ -1,0 +1,452 @@
+asyncapi: 3.0.0
+id: 'urn:com:example:devicesamplingapi'
+info:
+  title: Async API description of OmnAIScope DataServer
+  version: 1.0.0
+  description: |
+    This interface description documents the interface to the OmnAIScope-Backend v1.1.0 > : https://github.com/omnai-project/OmnAIScope-DataServer . 
+    The interface consists of a REST API endpoint and a WebSocket connection.
+    A data source has one or more data streams, each data stream has a UUID and a color.
+    The port on which the websocket runs is set by the client. The port number belongs to the parameters that 
+    are set when starting the backend via .\<exe> -w -p <portnumber> . 
+    
+    1. **Data Source List (HTTP GET)**
+       - **URL:** `http://<ip>:8080/UUID`
+       - **Description:** Returns a list of available data streams (UUIDs) and associated colors in JSON format.
+    2. **Data Source Information (HTTP GET)**
+       - **URL:** `http://<ip>:8080/v1/get_info`
+       - **Description:** Returns a list of available data streams (UUIDs), associated colors, the firmware and hardware version 
+       of the connected device, as well as the offset and scale of the calibration in JSON format.
+    3. **Saved measurements (HTTP GET)**
+       - **URL:** `http://<ip>:8080/download/<filename>`
+       - **Description:** Returns the requested file if possible. 
+
+    4. **WebSocket Connection (Bidirectional)**
+       - **URL:** `ws://<ip>:8080/ws`
+       - **Description:** Communication to manage a measurement via commands.
+
+
+defaultContentType: application/json
+servers:
+  httpServer:
+    host: '<ip>:8080'
+    protocol: http
+  wsServer:
+    host: '<ip>:8080'
+    protocol: ws
+
+channels:
+  /UUID:
+    address: /UUID
+    servers:
+      - $ref: '#/servers/httpServer'
+    messages:
+      deviceListResponse:
+        contentType: application/json
+        payload:
+          type: object
+          properties:
+            Datastreams:
+              type: array
+              description: List of data streams.
+              items:
+                type: object
+                properties:
+                  UUID:
+                    type: string
+            colors:
+              type: array
+              description: List of colors.
+              items:
+                type: object
+                properties:
+                  color:
+                    type: object
+                    properties:
+                      r:
+                        type: integer
+                        example: 81
+                      g:
+                        type: integer
+                        example: 237
+                      b:
+                        type: integer
+                        example: 96
+          example:
+            datastreams:
+              - UUID: E66368254F77B524
+            colors:
+              - color:
+                  r: 81
+                  g: 237
+                  b: 96
+  /v1/get_info:
+    address: /v1/get_info
+    servers:
+      - $ref: '#/servers/httpServer'
+    messages:
+      getInfoResponse:
+        contentType: application/json
+        payload:
+          type: object
+          properties:
+            devices:
+              type: array
+              description: List of connected devices
+              items:
+                type: object
+                properties:
+                  UUID:
+                    type: string
+            colors:
+              type: array
+              description: List of colors of connected devices 
+              items:
+                type: object
+                properties:
+                  color:
+                    type: object
+                    properties:
+                      r:
+                        type: integer
+                        example: 81
+                      g:
+                        type: integer
+                        example: 237
+                      b:
+                        type: integer
+                        example: 96
+            hardwareInfo:
+              type: array
+              description: Hardwareversions of the devices
+              items:
+                type: object
+                properties:
+                  major:
+                    type: integer
+                    example: 1
+                  minor:
+                    type: integer
+                    example: 0
+                  patch:
+                    type: integer
+                    example: 0
+            firmwareInfo:
+              type: array
+              description: Firmwareversions of the devices 
+              items:
+                type: object
+                properties:
+                  major:
+                    type: integer
+                    example: 2
+                  minor:
+                    type: integer
+                    example: 1
+                  patch:
+                    type: integer
+                    example: 3
+            offset:
+              type: array
+              description: Offset values of devices
+              items:
+                type: number
+                example: 0.05
+            scale:
+              type: array
+              description: Scale values of devices 
+              items:
+                type: number
+                example: 1.25
+          example:
+            devices:
+              - UUID: E66368254F77B524
+            colors:
+              - color:
+                  r: 81
+                  g: 237
+                  b: 96
+            hardwareInfo:
+              - major: 1
+                minor: 0
+                patch: 0
+            firmwareInfo:
+              - major: 2
+                minor: 1
+                patch: 3
+            offset:
+              - 0.05
+            scale:
+              - 1.25
+  /download/{filename}:
+    address: /download/{filename}
+    servers:
+      - $ref: '#/servers/httpServer'
+    parameters:
+      filename:
+        description: Filename of download file 
+    messages:
+      downloadFileResponse:
+        $ref: '#/components/messages/DownloadFileResponse'
+      downloadError400:
+        $ref: '#/components/messages/DownloadError400'
+      downloadError404:
+        $ref: '#/components/messages/DownloadError404'
+    bindings:
+      http:
+        type: request
+        method: GET
+  /ws:
+    address: /ws
+    servers:
+      - $ref: '#/servers/wsServer'
+    messages:
+      startCommand:
+        $ref: '#/components/messages/StartCommand'
+      stopCommand:
+        $ref: '#/components/messages/StopCommand'     
+      saveCommand:
+        $ref: '#/components/messages/SaveCommand'    
+      sampleDataJson:
+        $ref: '#/components/messages/SampleDataJson'
+      sampleDataCsv:
+        $ref: '#/components/messages/SampleDataCsv'
+      sampleDataBinary:
+        $ref: '#/components/messages/SampleDataBinary'
+    bindings:
+      ws: {}
+operations:
+  getDeviceList:
+    action: receive
+    channel:
+      $ref: '#/channels/~1UUID'
+    summary: Returns the list of available data streams and their colors.
+    bindings:
+      http:
+        method: GET
+    messages:
+      - $ref: '#/channels/~1UUID/messages/deviceListResponse'
+  getInfo:
+    action: receive
+    channel:
+      $ref: '#/channels/~1v1~1get_info'
+    summary: Returns device information (incl. Hardware/Firmware, Offset, Scale).
+    bindings:
+      http:
+        method: GET
+    messages:
+      - $ref: '#/channels/~1v1~1get_info/messages/getInfoResponse'
+  downloadFile:
+    action: receive                  
+    channel:
+      $ref: '#/channels/~1download~1{filename}'
+    summary: Provides the file requested. 
+    bindings:
+      http:
+        method: GET
+    messages:
+      - $ref: '#/channels/~1download~1{filename}/messages/downloadFileResponse'
+      - $ref: '#/channels/~1download~1{filename}/messages/downloadError400'
+      - $ref: '#/channels/~1download~1{filename}/messages/downloadError404'
+  startDeviceData:
+    action: send
+    channel:
+      $ref: '#/channels/~1ws'
+    summary: Defines data streams, sampling rate, and format to determine how the server responds.
+    messages: 
+      - $ref: '#/channels/~1ws/messages/startCommand'
+  stopDeviceData:                           
+    action: send
+    channel:
+      $ref: '#/channels/~1ws'
+    summary: Stops all previously started streams.
+    messages:
+      - $ref: '#/channels/~1ws/messages/stopCommand'
+  saveDeviceData:                          
+    action: send
+    channel:
+      $ref: '#/channels/~1ws'
+    summary: Saves stopped measurement locally. 
+    messages:
+      - $ref: '#/channels/~1ws/messages/saveCommand'
+  receiveSampleData:
+    action: receive
+    channel:
+      $ref: '#/channels/~1ws'
+    summary: Receives sample data in JSON, CSV, or binary format.
+    messages:
+      - $ref: '#/channels/~1ws/messages/sampleDataJson'
+      - $ref: '#/channels/~1ws/messages/sampleDataCsv'
+      - $ref: '#/channels/~1ws/messages/sampleDataBinary'
+components:
+  messages:
+    StartCommand:
+      name: StartComannd
+      title: Start Command
+      contentType: application/json        
+      summary: >
+        Start a measurement
+          • "type"  has to be "start" 
+          • "uuids": at least one device‑UUID.  
+          • Optional "rate": 1 – 100 000 Sa/s (Default 60).  
+          • Optional "format": "json", "csv" or "binary".
+      payload:
+        type: object
+        required: [type, uuids]             
+        additionalProperties: false         
+        properties:
+          type:
+            type: string
+            const: start                   
+          uuids:
+            type: array
+            minItems: 1
+            items:
+              type: string
+              pattern: '^[A-Za-z0-9]+$'    
+          rate:
+            type: integer
+            minimum: 1
+            maximum: 100000
+          format:
+            type: string
+            enum: [csv, json, binary]
+      examples:
+        - summary: CSV‑Stream with 1 000 Sa/s
+          payload:
+            type: start
+            uuids: [UUID1, UUID2, UUID3]
+            rate: 1000
+            format: csv
+    StopCommand:
+      name: StopCommand
+      title: Stop Command
+      contentType: application/json        
+      summary: >
+        Stop a measurement
+          • "type"  has to be "stop" 
+      payload:
+        type: object
+        required: [type]             
+        additionalProperties: false         
+        properties:
+          type:
+            type: string
+            const: stop   
+    SaveCommand:
+      name: SaveCommand
+      title: Save Command
+      contentType: application/json        
+      summary: >
+        Save a measurement
+          • "type"  has to be "save" 
+          • "uuids": at least one device‑UUID.  
+          • "path": filename of the file  
+          • Optional "format": "json", "csv"
+      payload:
+        type: object
+        required: [type, uuids]             
+        additionalProperties: false         
+        properties:
+          type:
+            type: string
+            const: save                   
+          uuids:
+            type: array
+            minItems: 1
+            items:
+              type: string
+              pattern: '^[A-Za-z0-9]+$'    
+          path:
+            type: string
+            pattern: '^[A-Za-z0-9]+$'
+          format:
+            type: string
+            enum: [csv, json]
+      examples:
+        - summary: CSV‑File 
+          payload:
+            type: save
+            uuids: [UUID1, UUID2, UUID3]
+            path: data.csv
+            format: csv
+    SampleDataJson:
+      name: SampleDataJson
+      title: Sample Data (JSON)
+      contentType: application/json
+      summary: Sample data in JSON format.
+      payload:
+        type: object
+        properties:
+          data:
+            type: array
+            description: List of samples.
+            items:
+              type: object
+              properties:
+                timestamp:
+                  type: number
+                  example: -0.999
+                value:
+                  type: array
+                  items:
+                    type: number
+                  example:
+                    - 0.04
+          datastreams:
+            type: array
+            description: List of device UUIDs.
+            items:
+              type: string
+    SampleDataCsv:
+      name: SampleDataCsv
+      title: Sample Data (CSV)
+      contentType: text/csv
+      summary: Sample data in CSV format.
+      payload:
+        type: string
+    SampleDataBinary:
+      name: SampleDataBinary
+      title: Sample Data (Binary)
+      contentType: application/x-protobuf
+      summary: Sample data in protobuf binary format. The syntax for protobuf was syntax = "proto3"; message Sample {double timestamp = 1; repeated double values = 2;}
+      payload:
+        type: string
+    DownloadFileResponse:
+      name: DownloadFileResponse
+      title: Download sucessful
+      contentType: text/plain
+      headers:
+        type: object
+        properties:
+          Content-Disposition:
+            type: string
+            example: 'attachment; filename="example.txt"'
+      payload:
+        type: string
+        description: Content of requested file
+      bindings:
+        http:
+          statusCode: 200
+
+    DownloadError400:
+      name: DownloadError400
+      title: Wrong filename
+      contentType: text/plain
+      payload:
+        type: string
+        example: 'Bad Request'
+      bindings:
+        http:
+          statusCode: 400
+
+    DownloadError404:
+      name: DownloadError404
+      title: File not found 
+      contentType: text/plain
+      payload:
+        type: string
+        example: 'Not Found'
+      bindings:
+        http:
+          statusCode: 404
