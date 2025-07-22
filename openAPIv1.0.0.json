@@ -160,7 +160,7 @@ components:
                     type: number
                   example:
                     - 0.04
-          datastreams:
+          devices:
             type: array
             description: List of device UUIDs.
             items:

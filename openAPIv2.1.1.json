@@ -4,7 +4,7 @@ info:
   title: Async API description of OmnAIScope DataServer
   version: 1.0.0
   description: |
-    This interface description documents the interface to the OmnAIScope-Backend v1.1.0 > : https://github.com/omnai-project/OmnAIScope-DataServer . 
+    This interface description documents the interface to the OmnAIScope-Backend v1.1.2 > : https://github.com/omnai-project/OmnAIScope-DataServer . 
     The interface consists of a REST API endpoint and a WebSocket connection.
     A data source has one or more data streams, each data stream has a UUID and a color.
     The port on which the websocket runs is set by the client. The port number belongs to the parameters that 
@@ -378,6 +378,9 @@ components:
       payload:
         type: object
         properties:
+          type:
+            type: string 
+            const: data
           data:
             type: array
             description: List of samples.
