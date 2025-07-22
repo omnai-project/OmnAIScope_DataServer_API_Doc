@@ -413,21 +413,20 @@ components:
       payload:
         type: string
     DownloadFileResponse:
-      name: DownloadFileResponse
-      title: Download sucessful
-      contentType: text/plain
-      headers:
+      name: file-ready
+      title: File ready for download
+      summary: Server acknowledges successful save operation.
+      contentType: application/json
+      payload:
         type: object
         properties:
-          Content-Disposition:
+          type:
             type: string
-            example: 'attachment; filename="example.txt"'
-      payload:
-        type: string
-        description: Content of requested file
-      bindings:
-        http:
-          statusCode: 200
+            const: file-ready
+          url:
+            type: string
+            description: Relative path to the file
+            example: /download/<filename>
 
     DownloadError400:
       name: DownloadError400
